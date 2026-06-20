@@ -1,0 +1,1992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith-JS v5.7 — AI Interface</title>
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #111827;
+            --bg-tertiary: #1a2332;
+            --bg-card: #1e293b;
+            --bg-input: #0f172a;
+            --border: #2d3a4f;
+            --border-active: #3b82f6;
+            --text-primary: #e2e8f0;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.15);
+            --success: #10b981;
+            --success-bg: rgba(16, 185, 129, 0.1);
+            --warning: #f59e0b;
+            --warning-bg: rgba(245, 158, 11, 0.1);
+            --error: #ef4444;
+            --error-bg: rgba(239, 68, 68, 0.1);
+            --info: #06b6d4;
+            --info-bg: rgba(6, 182, 212, 0.1);
+            --purple: #8b5cf6;
+            --purple-bg: rgba(139, 92, 246, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Layout */
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            grid-template-rows: auto 1fr;
+            min-height: 100vh;
+            max-height: 100vh;
+            transform-origin: top left; /* for dynamic scaling */
+        }
+
+        /* Header */
+        .header {
+            grid-column: 1 / -1;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            position: relative;
+            z-index: 9500; /* keep header + button above sidebar overlay */
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+        }
+
+        .version-badge {
+            font-size: 11px;
+            padding: 2px 8px;
+            background: var(--accent-glow);
+            color: var(--accent);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.training {
+            background: var(--warning);
+            animation: pulse-fast 0.8s infinite;
+        }
+
+        .status-dot.error {
+            background: var(--error);
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.2); }
+        }
+
+        /* Sidebar as overlay (dropdown) */
+        .sidebar {
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 16px;
+            gap: 12px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 300px;
+            z-index: 9000;
+        }
+
+        .sidebar.mobile-open {
+            display: flex;
+        }
+
+        .sidebar-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .sidebar-section-header {
+            padding: 10px 14px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .sidebar-section-header:hover {
+            color: var(--text-secondary);
+        }
+
+        .sidebar-section-body {
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sidebar-section-body.collapsed {
+            display: none;
+        }
+
+        /* Stats Grid */
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+        }
+
+        .stat-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-value.highlight {
+            color: var(--accent);
+        }
+
+        .stat-value.success {
+            color: var(--success);
+        }
+
+        .stat-value.warning {
+            color: var(--warning);
+        }
+
+        /* Config inputs */
+        .config-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .config-field label {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .config-field input,
+        .config-field select {
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 10px;
+            color: var(--text-primary);
+            font-size: 12px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .config-field input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .btn:hover {
+            background: var(--bg-card);
+            border-color: var(--text-muted);
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        .btn.primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn.success {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        .btn.danger {
+            background: var(--error);
+            border-color: var(--error);
+            color: white;
+        }
+
+        .btn.small {
+            padding: 5px 10px;
+            font-size: 11px;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Tabs */
+        .tab-bar {
+            display: flex;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 0 16px;
+            gap: 0;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .tab:hover {
+            color: var(--text-secondary);
+        }
+
+        .tab.active {
+            color: var(--accent);
+            border-bottom-color: var(--accent);
+        }
+
+        /* Tab Panels */
+        .tab-panels {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .tab-panel {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .tab-panel.active {
+            display: flex;
+        }
+
+        /* Chat Panel */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .chat-message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .chat-message.system {
+            align-self: center;
+            max-width: 70%;
+        }
+
+        .chat-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .chat-avatar.user-avatar {
+            background: var(--accent-glow);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .chat-avatar.ai-avatar {
+            background: var(--purple-bg);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+
+        .chat-bubble {
+            padding: 10px 16px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+            word-wrap: break-word;
+        }
+
+        .chat-message.user .chat-bubble {
+            background: var(--accent);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-message.ai .chat-bubble {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .chat-message.system .chat-bubble {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 12px;
+            text-align: center;
+            border-radius: 8px;
+        }
+
+        .chat-meta {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+
+        .chat-message.user .chat-meta {
+            text-align: right;
+        }
+
+        .chat-input-area {
+            padding: 16px 20px;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .chat-input-wrapper {
+            flex: 1;
+            position: relative;
+        }
+
+        .chat-input {
+            width: 100%;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: var(--text-primary);
+            font-size: 14px;
+            font-family: inherit;
+            outline: none;
+            resize: none;
+            max-height: 120px;
+            min-height: 44px;
+            transition: border-color 0.2s;
+        }
+
+        .chat-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .chat-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .send-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--accent);
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .send-btn:hover {
+            background: var(--accent-hover);
+            transform: scale(1.05);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .chat-options {
+            display: flex;
+            gap: 12px;
+            padding: 8px 20px 0;
+            background: var(--bg-secondary);
+        }
+
+        .chat-option {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .chat-option input[type="checkbox"] {
+            accent-color: var(--accent);
+        }
+
+        .chat-option input[type="range"] {
+            width: 60px;
+            accent-color: var(--accent);
+        }
+
+        .chat-option input[type="number"] {
+            width: 50px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 4px;
+            color: var(--text-primary);
+            font-size: 11px;
+            text-align: center;
+        }
+
+        /* Training Panel */
+        .train-panel {
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .train-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .train-card-header {
+            padding: 14px 18px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .train-card-body {
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .file-drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: var(--bg-input);
+        }
+
+        .file-drop-zone:hover,
+        .file-drop-zone.dragover {
+            border-color: var(--accent);
+            background: var(--accent-glow);
+        }
+
+        .file-drop-zone .drop-icon {
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+
+        .file-drop-zone .drop-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .file-drop-zone .drop-subtext {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .file-drop-zone input[type="file"] {
+            display: none;
+        }
+
+        .text-train-area {
+            width: 100%;
+            min-height: 150px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            resize: vertical;
+            outline: none;
+        }
+
+        .text-train-area:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        .progress-container {
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .progress-container.active {
+            display: flex;
+        }
+
+        .progress-bar-wrapper {
+            height: 8px;
+            background: var(--bg-input);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), var(--purple));
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .progress-bar.indeterminate {
+            width: 30%;
+            animation: indeterminate 1.5s ease-in-out infinite;
+        }
+
+        @keyframes indeterminate {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(400%); }
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .train-config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        /* Log Panel */
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background: var(--bg-input);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 12px;
+            line-height: 1.7;
+        }
+
+        .log-entry {
+            padding: 2px 0;
+            color: var(--text-secondary);
+            word-wrap: break-word;
+        }
+
+        .log-entry.info { color: var(--info); }
+        .log-entry.success { color: var(--success); }
+        .log-entry.warning { color: var(--warning); }
+        .log-entry.error { color: var(--error); }
+
+        .log-toolbar {
+            padding: 8px 16px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Memory Panel */
+        .memory-panel {
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .memory-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 12px;
+        }
+
+        .memory-chip {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .memory-chip:hover {
+            border-color: var(--accent);
+        }
+
+        .memory-chip-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .memory-chip-source {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .memory-chip-id {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+
+        .memory-chip-text {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .memory-chip-footer {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+        }
+
+        /* Toasts */
+        .toast-container {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .toast {
+            padding: 12px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            animation: slideIn 0.3s ease;
+            max-width: 380px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .toast.success {
+            background: var(--success-bg);
+            border: 1px solid var(--success);
+            color: var(--success);
+        }
+
+        .toast.error {
+            background: var(--error-bg);
+            border: 1px solid var(--error);
+            color: var(--error);
+        }
+
+        .toast.info {
+            background: var(--info-bg);
+            border: 1px solid var(--info);
+            color: var(--info);
+        }
+
+        .toast.warning {
+            background: var(--warning-bg);
+            border: 1px solid var(--warning);
+            color: var(--warning);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+        }
+
+        .modal textarea {
+            width: 100%;
+            min-height: 200px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            color: var(--text-primary);
+            font-size: 12px;
+            font-family: monospace;
+            resize: vertical;
+            margin-bottom: 12px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Hamburger visible on all devices */
+        .mobile-toggle {
+            display: flex;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: typing 1.4s ease-in-out infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-6px); opacity: 1; }
+        }
+
+        .vocab-search {
+            width: 100%;
+            padding: 6px 10px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 12px;
+            outline: none;
+        }
+
+        .vocab-list {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 11px;
+            font-family: monospace;
+        }
+
+        .vocab-item {
+            padding: 3px 0;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalContent"></div>
+</div>
+
+<div class="app-container">
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+            <span class="logo">Zenith-JS</span>
+            <span class="version-badge">v5.7</span>
+        </div>
+        <div class="header-status">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Ready</span>
+            </div>
+            <span style="font-size:12px;color:var(--text-muted)" id="vocabCount">Vocab: 0</span>
+            <span style="font-size:12px;color:var(--text-muted)" id="memoryCount">Memory: 0</span>
+        </div>
+    </header>
+
+    <!-- Sidebar (overlay) -->
+    <aside class="sidebar" id="sidebar">
+        <!-- Stats -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">
+                📊 Performance
+            </div>
+            <div class="sidebar-section-body" id="statsBody">
+                <div class="stat-row"><span class="stat-label">Train Calls</span><span class="stat-value" id="statTrainCalls">0</span></div>
+                <div class="stat-row"><span class="stat-label">Avg Loss</span><span class="stat-value highlight" id="statAvgLoss">0.0000</span></div>
+                <div class="stat-row"><span class="stat-label">Last Loss</span><span class="stat-value" id="statLastLoss">0.0000</span></div>
+                <div class="stat-row"><span class="stat-label">Min Loss</span><span class="stat-value success" id="statMinLoss">—</span></div>
+                <div class="stat-row"><span class="stat-label">Grad Clips</span><span class="stat-value" id="statGradClips">0</span></div>
+                <div class="stat-row"><span class="stat-label">NaN Grads</span><span class="stat-value" id="statNanGrads">0</span></div>
+                <div class="stat-row"><span class="stat-label">Cache Hit Rate</span><span class="stat-value" id="statCacheHit">0%</span></div>
+                <div class="stat-row"><span class="stat-label">Novel Patterns</span><span class="stat-value" id="statNovel">0</span></div>
+                <div class="stat-row"><span class="stat-label">Familiar</span><span class="stat-value" id="statFamiliar">0</span></div>
+                <div class="stat-row"><span class="stat-label">Embeddings</span><span class="stat-value" id="statEmbeddings">0</span></div>
+                <div class="stat-row"><span class="stat-label">Pool Reuses</span><span class="stat-value" id="statPoolReuses">0</span></div>
+                <div style="margin-top:4px;">
+                    <button class="btn small" onclick="refreshStats()">↻ Refresh</button>
+                    <button class="btn small" onclick="resetStats()">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Config -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">
+                ⚙️ Configuration
+            </div>
+            <div class="sidebar-section-body" id="configBody">
+                <div class="config-field">
+                    <label>Embedding Dim</label>
+                    <input type="number" id="cfgEmbDim" value="64" min="16" max="512" step="16">
+                </div>
+                <div class="config-field">
+                    <label>Hidden Dim</label>
+                    <input type="number" id="cfgHiddenDim" value="128" min="32" max="1024" step="32">
+                </div>
+                <div class="config-field">
+                    <label>Num Heads</label>
+                    <input type="number" id="cfgNumHeads" value="4" min="1" max="16">
+                </div>
+                <div class="config-field">
+                    <label>Num Layers</label>
+                    <input type="number" id="cfgNumLayers" value="2" min="1" max="8">
+                </div>
+                <div class="config-field">
+                    <label>Learning Rate</label>
+                    <input type="number" id="cfgLR" value="0.0005" min="0.00001" max="0.01" step="0.0001">
+                </div>
+                <div class="config-field">
+                    <label>Max Seq Length</label>
+                    <input type="number" id="cfgMaxSeq" value="128" min="16" max="512">
+                </div>
+                <div style="margin-top:4px;">
+                    <button class="btn small primary" onclick="applyConfig()">Apply Config</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model I/O -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">
+                💾 Save / Load
+            </div>
+            <div class="sidebar-section-body">
+                <div class="btn-group">
+                    <button class="btn small" onclick="downloadWeights()">⬇ Weights</button>
+                    <button class="btn small" onclick="uploadWeights()">⬆ Weights</button>
+                </div>
+                <div class="btn-group">
+                    <button class="btn small" onclick="downloadMemory()">⬇ Memory</button>
+                    <button class="btn small" onclick="uploadMemory()">⬆ Memory</button>
+                </div>
+                <div class="btn-group">
+                    <button class="btn small danger" onclick="confirmReset()">🗑 Reset All</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vocabulary -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">
+                📖 Vocabulary
+            </div>
+            <div class="sidebar-section-body collapsed" id="vocabBody">
+                <input type="text" class="vocab-search" placeholder="Search vocabulary..." oninput="searchVocab(this.value)">
+                <div class="vocab-list" id="vocabList"></div>
+            </div>
+        </div>
+
+        <!-- VM / Calc -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-header" onclick="toggleSection(this)">
+                🧮 Calculator
+            </div>
+            <div class="sidebar-section-body collapsed">
+                <input type="text" class="vocab-search" id="calcInput" placeholder="e.g. 25 * 4 + 10" onkeydown="if(event.key==='Enter')runCalc()">
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <button class="btn small primary" onclick="runCalc()">=</button>
+                    <span id="calcResult" style="font-size:14px;font-weight:700;color:var(--success);font-family:monospace;"></span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+        <div class="tab-bar">
+            <div class="tab active" data-tab="chat" onclick="switchTab('chat')">💬 Chat</div>
+            <div class="tab" data-tab="train" onclick="switchTab('train')">🧠 Train</div>
+            <div class="tab" data-tab="memory" onclick="switchTab('memory')">🗃 Memory</div>
+            <div class="tab" data-tab="logs" onclick="switchTab('logs')">📋 Logs</div>
+        </div>
+
+        <div class="tab-panels">
+            <!-- Chat -->
+            <div class="tab-panel active" id="panel-chat">
+                <div class="chat-options">
+                    <label class="chat-option">
+                        <input type="checkbox" id="optRAG" checked> RAG
+                    </label>
+                    <label class="chat-option">
+                        <input type="checkbox" id="optVM" checked> Calculator
+                    </label>
+                    <label class="chat-option">
+                        Temp: <input type="range" id="optTemp" min="0.1" max="2.0" step="0.1" value="0.8">
+                        <span id="optTempVal">0.8</span>
+                    </label>
+                    <label class="chat-option">
+                        Tokens: <input type="number" id="optMaxTokens" value="50" min="5" max="200" step="5">
+                    </label>
+                    <label class="chat-option">
+                        TopK: <input type="number" id="optTopK" value="20" min="1" max="100">
+                    </label>
+                </div>
+                <div class="chat-container" id="chatContainer">
+                    <div class="chat-message system">
+                        <div class="chat-bubble">
+                            Zenith-JS v5.7 loaded. Train the model with text data, then chat with it.
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-input-area">
+                    <div class="chat-input-wrapper">
+                        <textarea class="chat-input" id="chatInput" placeholder="Type a message..." rows="1" onkeydown="handleChatKey(event)" oninput="autoResize(this)"></textarea>
+                    </div>
+                    <button class="send-btn" id="sendBtn" onclick="sendChat()">➤</button>
+                </div>
+            </div>
+
+            <!-- Train -->
+            <div class="tab-panel" id="panel-train">
+                <div class="train-panel">
+                    <!-- File Upload -->
+                    <div class="train-card">
+                        <div class="train-card-header">📁 Train from File</div>
+                        <div class="train-card-body">
+                            <div class="file-drop-zone" id="fileDropZone" onclick="document.getElementById('fileInput').click()">
+                                <div class="drop-icon">📄</div>
+                                <div class="drop-text">Drop a text file here or click to browse</div>
+                                <div class="drop-subtext">Supports .txt, .md, .json, .csv, .js, .py, .html</div>
+                                <input type="file" id="fileInput" accept=".txt,.md,.json,.csv,.js,.py,.html,.css,.xml,.log" multiple onchange="handleFileUpload(this.files)">
+                            </div>
+                            <div class="train-config-grid">
+                                <div class="config-field">
+                                    <label>Training Passes</label>
+                                    <input type="number" id="trainPasses" value="5" min="1" max="50">
+                                </div>
+                                <div class="config-field">
+                                    <label>Curriculum</label>
+                                    <select id="trainCurriculum">
+                                        <option value="true">Enabled</option>
+                                        <option value="false">Disabled</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="progress-container" id="fileProgress">
+                                <div class="progress-bar-wrapper">
+                                    <div class="progress-bar" id="fileProgressBar"></div>
+                                </div>
+                                <div class="progress-text">
+                                    <span id="fileProgressLabel">Preparing...</span>
+                                    <span id="fileProgressPercent">0%</span>
+                                </div>
+                            </div>
+                            <div class="btn-group">
+                                <button class="btn danger small" id="stopTrainBtn" onclick="stopTraining()" style="display:none;">⏹ Stop</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Text Input -->
+                    <div class="train-card">
+                        <div class="train-card-header">✏️ Train from Text</div>
+                        <div class="train-card-body">
+                            <textarea class="text-train-area" id="textTrainInput" placeholder="Paste or type training text here...&#10;&#10;The model will learn patterns, vocabulary, and context from this text."></textarea>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <button class="btn primary" id="trainTextBtn" onclick="trainFromText()">🚀 Train</button>
+                                <span id="textTrainStatus" style="font-size:12px;color:var(--text-muted);"></span>
+                            </div>
+                            <div class="progress-container" id="textProgress">
+                                <div class="progress-bar-wrapper">
+                                    <div class="progress-bar" id="textProgressBar"></div>
+                                </div>
+                                <div class="progress-text">
+                                    <span id="textProgressLabel">Training...</span>
+                                    <span id="textProgressPercent">0%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- No Quick Samples -->
+                </div>
+            </div>
+
+            <!-- Memory -->
+            <div class="tab-panel" id="panel-memory">
+                <div class="memory-panel">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <h3 style="font-size:16px;">Memory Chunks</h3>
+                        <div class="btn-group">
+                            <button class="btn small" onclick="refreshMemory()">↻ Refresh</button>
+                            <button class="btn small danger" onclick="clearMemory()">Clear All</button>
+                        </div>
+                    </div>
+                    <div class="memory-grid" id="memoryGrid">
+                        <div class="empty-state">
+                            <div class="empty-icon">🗃</div>
+                            <h3>No memories yet</h3>
+                            <p>Train the model with some text to populate memory.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs -->
+            <div class="tab-panel" id="panel-logs">
+                <div class="log-toolbar">
+                    <span style="font-size:12px;color:var(--text-muted);">Console Output</span>
+                    <div class="btn-group">
+                        <button class="btn small" onclick="clearLogs()">Clear</button>
+                        <button class="btn small" onclick="copyLogs()">Copy</button>
+                    </div>
+                </div>
+                <div class="log-container" id="logContainer"></div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Load aiCore -->
+<script src="aiCore.js"></script>
+
+<script>
+// ============================================================================
+// App State
+// ============================================================================
+let chatHistory = [];
+let logEntries = [];
+let statsInterval = null;
+
+// ============================================================================
+// Dynamic scale to fit screen in BOTH directions
+// ============================================================================
+function updateAppScale() {
+    const app = document.querySelector('.app-container');
+    if (!app) return;
+
+    // Reset to natural size to measure it
+    app.style.transform = 'none';
+    app.style.width = 'auto';
+    app.style.height = 'auto';
+
+    // Force layout, then measure natural size
+    const rect = app.getBoundingClientRect();
+    const naturalWidth  = rect.width  || window.innerWidth;
+    const naturalHeight = rect.height || window.innerHeight;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    // Scale so that the entire app fits in viewport in BOTH axes
+    const scaleX = vw / naturalWidth;
+    const scaleY = vh / naturalHeight;
+    const scale  = Math.min(1, scaleX, scaleY); // never scale above 1
+
+    app.style.transformOrigin = 'top left';
+    app.style.transform = `scale(${scale})`;
+
+    // Lock unscaled size so scaling behaves predictably
+    app.style.width  = naturalWidth  + 'px';
+    app.style.height = naturalHeight + 'px';
+}
+
+window.addEventListener('resize', updateAppScale);
+window.addEventListener('orientationchange', updateAppScale);
+window.addEventListener('load', updateAppScale);
+
+// ============================================================================
+// Console Intercept
+// ============================================================================
+(function() {
+    const origLog = console.log;
+    const origWarn = console.warn;
+    const origError = console.error;
+
+    console.log = function(...args) {
+        origLog.apply(console, args);
+        addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '), 'info');
+    };
+    console.warn = function(...args) {
+        origWarn.apply(console, args);
+        addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '), 'warning');
+    };
+    console.error = function(...args) {
+        origError.apply(console, args);
+        addLog(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' '), 'error');
+    };
+})();
+
+function addLog(text, level = 'info') {
+    const time = new Date().toLocaleTimeString();
+    logEntries.push({ time, text, level });
+
+    const container = document.getElementById('logContainer');
+    if (container) {
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${level}`;
+        entry.textContent = `[${time}] ${text}`;
+        container.appendChild(entry);
+
+        if (container.children.length > 500) {
+            container.removeChild(container.firstChild);
+        }
+
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+// ============================================================================
+// Toast Notifications
+// ============================================================================
+function showToast(message, type = 'info', duration = 3000) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.transition = 'opacity 0.3s';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
+// ============================================================================
+// Tab Navigation
+// ============================================================================
+function switchTab(tabId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `panel-${tabId}`));
+
+    if (tabId === 'memory') refreshMemory();
+    if (tabId === 'logs') {
+        const container = document.getElementById('logContainer');
+        container.scrollTop = container.scrollHeight;
+    }
+}
+
+// ============================================================================
+// Sidebar
+// ============================================================================
+function toggleSection(header) {
+    const body = header.nextElementSibling;
+    body.classList.toggle('collapsed');
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('mobile-open');
+}
+
+// ============================================================================
+// Stats
+// ============================================================================
+function refreshStats() {
+    if (typeof aiCore === 'undefined') return;
+
+    const stats = aiCore.getPerformanceStats();
+    const config = aiCore.getConfig();
+
+    document.getElementById('statTrainCalls').textContent = stats.trainCalls;
+    document.getElementById('statAvgLoss').textContent = stats.avgLoss.toFixed(4);
+    document.getElementById('statLastLoss').textContent = stats.lastLoss.toFixed(4);
+    document.getElementById('statMinLoss').textContent = stats.minLoss > 0 ? stats.minLoss.toFixed(4) : '—';
+    document.getElementById('statGradClips').textContent = stats.gradientClips;
+    document.getElementById('statNanGrads').textContent = stats.nanGradients;
+    document.getElementById('statCacheHit').textContent = (stats.activeGradRate * 100).toFixed(1) + '%';
+    document.getElementById('statNovel').textContent = stats.novelPatterns;
+    document.getElementById('statFamiliar').textContent = stats.familiarPatterns;
+    document.getElementById('statEmbeddings').textContent = stats.memory.embeddingTableSize;
+    document.getElementById('statPoolReuses').textContent = stats.memory.arrayPool.reuses;
+
+    document.getElementById('vocabCount').textContent = `Vocab: ${config.vocabSize}`;
+    document.getElementById('memoryCount').textContent = `Memory: ${aiCore._internal.memory.length}`;
+}
+
+function resetStats() {
+    aiCore.resetPerformanceStats();
+    refreshStats();
+    showToast('Stats reset', 'info');
+}
+
+// ============================================================================
+// Config
+// ============================================================================
+function applyConfig() {
+    const cfg = {
+        embeddingDim: parseInt(document.getElementById('cfgEmbDim').value),
+        hiddenDim: parseInt(document.getElementById('cfgHiddenDim').value),
+        numHeads: parseInt(document.getElementById('cfgNumHeads').value),
+        numLayers: parseInt(document.getElementById('cfgNumLayers').value),
+        learningRate: parseFloat(document.getElementById('cfgLR').value),
+        maxSeqLen: parseInt(document.getElementById('cfgMaxSeq').value)
+    };
+
+    try {
+        aiCore.setConfig(cfg);
+        showToast('Configuration applied', 'success');
+        refreshStats();
+    } catch (e) {
+        showToast('Config error: ' + e.message, 'error');
+    }
+}
+
+function loadCurrentConfig() {
+    if (typeof aiCore === 'undefined') return;
+    const cfg = aiCore.getConfig();
+    document.getElementById('cfgEmbDim').value = cfg.embeddingDim;
+    document.getElementById('cfgHiddenDim').value = cfg.hiddenDim;
+    document.getElementById('cfgNumHeads').value = cfg.numHeads;
+    document.getElementById('cfgNumLayers').value = cfg.numLayers;
+    document.getElementById('cfgLR').value = cfg.learningRate;
+    document.getElementById('cfgMaxSeq').value = cfg.maxSeqLen;
+}
+
+// ============================================================================
+// Chat
+// ============================================================================
+function handleChatKey(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendChat();
+    }
+}
+
+function autoResize(textarea) {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+}
+
+function addChatMessage(role, text, meta = '') {
+    const container = document.getElementById('chatContainer');
+    const msg = document.createElement('div');
+    msg.className = `chat-message ${role}`;
+
+    let avatarClass, avatarEmoji;
+    if (role === 'user') { avatarClass = 'user-avatar'; avatarEmoji = '👤'; }
+    else if (role === 'ai') { avatarClass = 'ai-avatar'; avatarEmoji = '🤖'; }
+    else { avatarClass = ''; avatarEmoji = ''; }
+
+    if (role === 'system') {
+        msg.innerHTML = `<div class="chat-bubble">${escapeHtml(text)}</div>`;
+    } else {
+        msg.innerHTML = `
+            <div class="chat-avatar ${avatarClass}">${avatarEmoji}</div>
+            <div>
+                <div class="chat-bubble">${escapeHtml(text)}</div>
+                ${meta ? `<div class="chat-meta">${meta}</div>` : ''}
+            </div>
+        `;
+    }
+
+    container.appendChild(msg);
+    container.scrollTop = container.scrollHeight;
+}
+
+function addTypingIndicator() {
+    const container = document.getElementById('chatContainer');
+    const msg = document.createElement('div');
+    msg.className = 'chat-message ai';
+    msg.id = 'typingIndicator';
+    msg.innerHTML = `
+        <div class="chat-avatar ai-avatar">🤖</div>
+        <div class="chat-bubble">
+            <div class="typing-indicator">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+            </div>
+        </div>
+    `;
+    container.appendChild(msg);
+    container.scrollTop = container.scrollHeight;
+}
+
+function removeTypingIndicator() {
+    const el = document.getElementById('typingIndicator');
+    if (el) el.remove();
+}
+
+async function sendChat() {
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = '';
+    autoResize(input);
+
+    addChatMessage('user', text);
+
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.disabled = true;
+    addTypingIndicator();
+
+    const t0 = performance.now();
+
+    try {
+        await new Promise(r => setTimeout(r, 50));
+
+        const useRAG = document.getElementById('optRAG').checked;
+        const useVM = document.getElementById('optVM').checked;
+        const temperature = parseFloat(document.getElementById('optTemp').value);
+        const maxTokens = parseInt(document.getElementById('optMaxTokens').value);
+        const topK = parseInt(document.getElementById('optTopK').value);
+
+        const response = aiCore.generateWithContext(text, {
+            maxTokens,
+            temperature,
+            topK,
+            topP: 0.9,
+            useRAG,
+            useVM
+        });
+
+        const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+        removeTypingIndicator();
+        addChatMessage('ai', response || '(no response generated)', `${elapsed}s`);
+
+        aiCore.learnFromChat(text, response);
+
+        chatHistory.push({ role: 'user', text });
+        chatHistory.push({ role: 'ai', text: response });
+
+    } catch (e) {
+        removeTypingIndicator();
+        addChatMessage('system', `Error: ${e.message}`);
+    }
+
+    sendBtn.disabled = false;
+    refreshStats();
+}
+
+// ============================================================================
+// Temperature slider display
+// ============================================================================
+document.getElementById('optTemp').addEventListener('input', function() {
+    document.getElementById('optTempVal').textContent = this.value;
+});
+
+// ============================================================================
+// Training
+// ============================================================================
+function setTrainingUI(active) {
+    const dot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const stopBtn = document.getElementById('stopTrainBtn');
+
+    if (active) {
+        dot.className = 'status-dot training';
+        statusText.textContent = 'Training...';
+        stopBtn.style.display = 'inline-flex';
+        if (!statsInterval) {
+            statsInterval = setInterval(refreshStats, 2000);
+        }
+    } else {
+        dot.className = 'status-dot';
+        statusText.textContent = 'Ready';
+        stopBtn.style.display = 'none';
+        if (statsInterval) {
+            clearInterval(statsInterval);
+            statsInterval = null;
+        }
+        refreshStats();
+    }
+}
+
+function stopTraining() {
+    aiCore.stopTraining();
+    showToast('Stopping training...', 'warning');
+}
+
+// File upload
+function handleFileUpload(files) {
+    if (!files || files.length === 0) return;
+
+    for (const file of files) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const text = e.target.result;
+            await trainOnText(file.name, text);
+        };
+        reader.onerror = () => {
+            showToast(`Failed to read ${file.name}`, 'error');
+        };
+        reader.readAsText(file);
+    }
+}
+
+// Drag and drop
+const dropZone = document.getElementById('fileDropZone');
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFileUpload(e.dataTransfer.files);
+});
+
+async function trainOnText(name, text) {
+    const passes = parseInt(document.getElementById('trainPasses').value) || 5;
+    const useCurriculum = document.getElementById('trainCurriculum').value === 'true';
+
+    const progressEl = document.getElementById('fileProgress');
+    const progressBar = document.getElementById('fileProgressBar');
+    const progressLabel = document.getElementById('fileProgressLabel');
+    const progressPercent = document.getElementById('fileProgressPercent');
+
+    progressEl.classList.add('active');
+    progressBar.classList.add('indeterminate');
+    progressBar.style.width = '30%';
+    progressLabel.textContent = `Training on ${name}...`;
+    progressPercent.textContent = '';
+
+    setTrainingUI(true);
+
+    try {
+        const result = await aiCore.learnFromFile(name, text, {
+            passes,
+            useCurriculum,
+            progressCallback: (info) => {
+                progressBar.classList.remove('indeterminate');
+                const pct = Math.round((info.pass / info.total) * 100);
+                progressBar.style.width = pct + '%';
+                progressLabel.textContent = `${name} — Phase: ${info.phase}, Pass ${info.pass}/${info.total}`;
+                progressPercent.textContent = pct + '%';
+            }
+        });
+
+        if (result) {
+            showToast(`Training complete: ${name}`, 'success');
+            progressBar.style.width = '100%';
+            progressLabel.textContent = `Done: ${name}`;
+            progressPercent.textContent = '100%';
+        } else {
+            showToast(`Training failed: ${name}`, 'error');
+        }
+
+    } catch (e) {
+        showToast(`Error: ${e.message}`, 'error');
+    }
+
+    setTrainingUI(false);
+
+    setTimeout(() => {
+        progressEl.classList.remove('active');
+        progressBar.classList.remove('indeterminate');
+    }, 3000);
+}
+
+async function trainFromText() {
+    const textarea = document.getElementById('textTrainInput');
+    const text = textarea.value.trim();
+    if (!text) {
+        showToast('Please enter some text first', 'warning');
+        return;
+    }
+
+    const btn = document.getElementById('trainTextBtn');
+    btn.disabled = true;
+
+    const progressEl = document.getElementById('textProgress');
+    const progressBar = document.getElementById('textProgressBar');
+    const progressLabel = document.getElementById('textProgressLabel');
+    const progressPercent = document.getElementById('textProgressPercent');
+
+    progressEl.classList.add('active');
+    progressBar.classList.add('indeterminate');
+
+    setTrainingUI(true);
+
+    const passes = parseInt(document.getElementById('trainPasses').value) || 5;
+    const useCurriculum = document.getElementById('trainCurriculum').value === 'true';
+
+    try {
+        const result = await aiCore.learnFromFile('text-input', text, {
+            passes,
+            useCurriculum,
+            progressCallback: (info) => {
+                progressBar.classList.remove('indeterminate');
+                const pct = Math.round((info.pass / info.total) * 100);
+                progressBar.style.width = pct + '%';
+                progressLabel.textContent = `Phase: ${info.phase}, Pass ${info.pass}/${info.total}`;
+                progressPercent.textContent = pct + '%';
+            }
+        });
+
+        if (result) {
+            showToast('Text training complete!', 'success');
+            document.getElementById('textTrainStatus').textContent = 'Training complete ✓';
+        }
+    } catch (e) {
+        showToast('Training error: ' + e.message, 'error');
+    }
+
+    btn.disabled = false;
+    setTrainingUI(false);
+
+    setTimeout(() => {
+        progressEl.classList.remove('active');
+        progressBar.classList.remove('indeterminate');
+    }, 3000);
+}
+
+// ============================================================================
+// Memory Panel
+// ============================================================================
+function refreshMemory() {
+    const grid = document.getElementById('memoryGrid');
+    const mem = aiCore._internal.memory;
+
+    if (!mem || mem.length === 0) {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">🗃</div>
+                <h3>No memories yet</h3>
+                <p>Train the model with some text to populate memory.</p>
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = mem.map((m, i) => `
+        <div class="memory-chip">
+            <div class="memory-chip-header">
+                <span class="memory-chip-source">${escapeHtml(m.fileName || 'unknown')}</span>
+                <span class="memory-chip-id">#${m.chunkId ?? i}</span>
+            </div>
+            <div class="memory-chip-text">${escapeHtml(m.chunkText || '(empty)')}</div>
+            <div class="memory-chip-footer">
+                <span>🔤 ${(m.tokens || []).length} tokens</span>
+                <span>👁 ${m.exposure || 0} exposures</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function clearMemory() {
+    if (!confirm('Clear all memory chunks?')) return;
+    aiCore._internal.memory.length = 0;
+    refreshMemory();
+    showToast('Memory cleared', 'info');
+}
+
+// ============================================================================
+// Vocabulary Search
+// ============================================================================
+function searchVocab(query) {
+    const list = document.getElementById('vocabList');
+    const vocab = aiCore._internal.vocab;
+    const wordFreq = aiCore._internal.wordFreq;
+
+    if (!query) {
+        const entries = Array.from(vocab.entries()).slice(0, 50);
+        list.innerHTML = entries.map(([word, id]) =>
+            `<div class="vocab-item"><span>${escapeHtml(word)}</span><span>#${id} (${wordFreq.get(word) || 0})</span></div>`
+        ).join('');
+        return;
+    }
+
+    const q = query.toLowerCase();
+    const matches = [];
+    for (const [word, id] of vocab.entries()) {
+        if (word.toLowerCase().includes(q)) {
+            matches.push([word, id]);
+            if (matches.length >= 50) break;
+        }
+    }
+
+    list.innerHTML = matches.map(([word, id]) =>
+        `<div class="vocab-item"><span>${escapeHtml(word)}</span><span>#${id} (${wordFreq.get(word) || 0})</span></div>`
+    ).join('');
+}
+
+// ============================================================================
+// Calculator
+// ============================================================================
+function runCalc() {
+    const input = document.getElementById('calcInput').value;
+    const result = aiCore.vm.calc(input);
+    document.getElementById('calcResult').textContent = result !== null ? `= ${result}` : 'Error';
+}
+
+// ============================================================================
+// Save / Load
+// ============================================================================
+function downloadJSON(data, filename) {
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function uploadJSON(callback) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => callback(ev.target.result);
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+function downloadWeights() {
+    try {
+        const data = aiCore.saveWeights();
+        downloadJSON(data, `zenith-weights-${Date.now()}.json`);
+        showToast('Weights downloaded', 'success');
+    } catch (e) {
+        showToast('Export error: ' + e.message, 'error');
+    }
+}
+
+function uploadWeights() {
+    uploadJSON((json) => {
+        try {
+            const result = aiCore.loadWeights(json);
+            if (result) {
+                showToast('Weights loaded successfully', 'success');
+                loadCurrentConfig();
+                refreshStats();
+            } else {
+                showToast('Failed to load weights', 'error');
+            }
+        } catch (e) {
+            showToast('Load error: ' + e.message, 'error');
+        }
+    });
+}
+
+function downloadMemory() {
+    try {
+        const data = aiCore.exportMemory();
+        downloadJSON(data, `zenith-memory-${Date.now()}.json`);
+        showToast('Memory downloaded', 'success');
+    } catch (e) {
+        showToast('Export error: ' + e.message, 'error');
+    }
+}
+
+function uploadMemory() {
+    uploadJSON((json) => {
+        try {
+            const result = aiCore.importMemory(json);
+            if (result) {
+                showToast('Memory loaded successfully', 'success');
+                refreshStats();
+                refreshMemory();
+            } else {
+                showToast('Failed to load memory', 'error');
+            }
+        } catch (e) {
+            showToast('Load error: ' + e.message, 'error');
+        }
+    });
+}
+
+function confirmReset() {
+    if (!confirm('Reset the entire model? This cannot be undone.')) return;
+
+    aiCore.resetAll();
+
+    loadCurrentConfig();
+    refreshStats();
+    refreshMemory();
+    showToast('Model reset', 'warning');
+}
+
+// ============================================================================
+// Logs
+// ============================================================================
+function clearLogs() {
+    document.getElementById('logContainer').innerHTML = '';
+    logEntries = [];
+}
+
+function copyLogs() {
+    const text = logEntries.map(e => `[${e.time}] ${e.text}`).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+        showToast('Logs copied to clipboard', 'info');
+    });
+}
+
+// ============================================================================
+// Utilities
+// ============================================================================
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// ============================================================================
+// Init
+// ============================================================================
+window.addEventListener('DOMContentLoaded', () => {
+    if (typeof aiCore === 'undefined') {
+        showToast('⚠️ aiCore.js failed to load. Make sure it is in the same folder.', 'error', 10000);
+        document.getElementById('statusDot').className = 'status-dot error';
+        document.getElementById('statusText').textContent = 'Error: aiCore not loaded';
+        return;
+    }
+
+    loadCurrentConfig();
+    refreshStats();
+    searchVocab('');
+    updateAppScale();
+    addLog('Zenith-JS v5.7 initialized successfully', 'success');
+    showToast('Zenith-JS ready!', 'success');
+});
+</script>
+
+</body>
+</html>
