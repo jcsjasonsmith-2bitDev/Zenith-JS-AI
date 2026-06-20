@@ -3,4 +3,6 @@ Zenith is a browser based native AI transformer written in Javascript. Zenith fe
 
 Current capabilities, learn from text you give it, generate semi coherent sentences from the training data.
 
+Zenith hosts its own runtime, run other models in the same environment. 
+
 Zenith is a proof of concept, and is intended for educational purposes.
